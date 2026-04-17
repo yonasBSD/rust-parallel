@@ -231,6 +231,30 @@ fn fails_j0() {
 }
 
 #[test]
+fn fails_j0_percent() {
+    rust_parallel()
+        .arg("-j0%")
+        .assert()
+        .failure()
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(
+            "invalid value '0%' for '--jobs <JOBS>'",
+        ));
+}
+
+#[test]
+fn succeeds_j200_percent() {
+    rust_parallel()
+        .arg("-j200%")
+        .arg("echo")
+        .arg(":::")
+        .arg("hello")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("hello"));
+}
+
+#[test]
 fn fails_t0() {
     rust_parallel()
         .arg("-t0")

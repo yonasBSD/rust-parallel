@@ -25,7 +25,8 @@ pub struct CommandLineArgs {
     #[arg(short, long)]
     pub input_file: Vec<String>,
 
-    /// Maximum number of commands to run in parallel, defauts to num cpus
+    /// Maximum number of commands to run in parallel, defaults to num cpus.
+    /// Accepts an integer (e.g. 4) or a percentage of available CPUs (e.g. 200%).
     #[arg(short, long, default_value_t = num_cpus::get(), value_parser = Self::parse_semaphore_permits)]
     pub jobs: usize,
 
@@ -129,7 +130,18 @@ impl CommandLineArgs {
     fn parse_semaphore_permits(s: &str) -> Result<usize, String> {
         let range = 1..=tokio::sync::Semaphore::MAX_PERMITS;
 
-        let value: usize = s.parse().map_err(|_| format!("`{s}` isn't a number"))?;
+        let value: usize = if let Some(pct_str) = s.strip_suffix('%') {
+            let pct: usize = pct_str
+                .parse()
+                .map_err(|_| format!("`{s}` isn't a valid percentage"))?;
+            if pct == 0 {
+                return Err("percentage must be greater than 0".to_string());
+            }
+            (num_cpus::get() * pct / 100).max(1)
+        } else {
+            s.parse().map_err(|_| format!("`{s}` isn't a number"))?
+        };
+
         if range.contains(&value) {
             Ok(value)
         } else {
@@ -199,5 +211,39 @@ mod test {
         use clap::CommandFactory;
 
         CommandLineArgs::command().debug_assert()
+    }
+
+    #[test]
+    fn test_parse_semaphore_permits_integer() {
+        assert_eq!(CommandLineArgs::parse_semaphore_permits("1"), Ok(1));
+        assert_eq!(CommandLineArgs::parse_semaphore_permits("4"), Ok(4));
+        assert!(CommandLineArgs::parse_semaphore_permits("0").is_err());
+        assert!(CommandLineArgs::parse_semaphore_permits("abc").is_err());
+    }
+
+    #[test]
+    fn test_parse_semaphore_permits_percent() {
+        let cpus = num_cpus::get();
+
+        // 100% == num_cpus
+        assert_eq!(CommandLineArgs::parse_semaphore_permits("100%"), Ok(cpus));
+
+        // 200% == num_cpus * 2
+        assert_eq!(
+            CommandLineArgs::parse_semaphore_permits("200%"),
+            Ok(cpus * 2)
+        );
+
+        // 0% is an error
+        assert!(CommandLineArgs::parse_semaphore_permits("0%").is_err());
+
+        // non-integer percent is an error
+        assert!(CommandLineArgs::parse_semaphore_permits("50.5%").is_err());
+
+        // very small percent clamps to at least 1
+        assert_eq!(
+            CommandLineArgs::parse_semaphore_permits("1%"),
+            Ok((cpus / 100).max(1))
+        );
     }
 }
