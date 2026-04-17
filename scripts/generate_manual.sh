@@ -172,13 +172,15 @@ echo '```'
 echo '
 ## Parallelism
 
-By default the number of parallel jobs to run simulatenously is the number of cpus detected at run time.
+By default the number of parallel jobs to run simultaneously is the number of cpus detected at run time.
 
-This can be override with the `-j`/`--jobs` option.
+This can be overridden with the `-j`/`--jobs` option.
 
 With `-j5` all echo commands below run in parallel.
 
 With `-j1` all jobs run sequentially.
+
+A percentage of available CPUs can also be specified using the `%` suffix.  For example `-j200%` runs twice as many jobs as there are CPUs, and `-j50%` runs half as many.  The computed value is always at least 1.
 '
 
 echo '```
@@ -188,6 +190,10 @@ $RUST_PARALLEL -j5 echo ::: hi there how are you
 echo '
 $ rust-parallel -j1 echo ::: hi there how are you'
 $RUST_PARALLEL -j1 echo ::: hi there how are you
+
+echo '
+$ rust-parallel -j200% echo ::: hi there how are you'
+$RUST_PARALLEL -j200% echo ::: hi there how are you
 
 echo '```'
 
